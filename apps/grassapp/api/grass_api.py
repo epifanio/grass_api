@@ -38,7 +38,15 @@ async def form_post(form_data: GeorefFile = Depends()):
     with open(f'/app/grassdata/{form_data.f.filename}', 'wb') as f:
         f.write(contents)
         f.flush()
-    rds = gdal.Open('/app/grassdata/testfile.tiff')
+    # rds = gdal.Open(form_data.f.filename)
+    rds = gdal.Open(f'/app/grassdata/{form_data.f.filename}')
+    metadata = rds.GetMetadata_Dict()
+    metadata['size'] = float(form_data.f.size) * 10E-05
+    gdalinfo_dict = {}
+    gdalinfo_dict['filename'] = rds.GetDescription()
+    gdalinfo_dict['projection'] = rds.GetProjection()
+    gdalinfo_dict['geotransform'] = rds.GetGeoTransform()
+
     print('\n')
     print(rds.GetProjection())
     print('\n')
@@ -48,16 +56,15 @@ async def form_post(form_data: GeorefFile = Depends()):
     print('\n')
     print(rds.GetMetadata_Dict())
     print('\n')
-    print(rds.GetSpatialRef().ExportToProj4())
     print(dir(rds.GetSpatialRef()))
     print(type(rds.GetSpatialRef()))
-    metadata = rds.GetMetadata_Dict()
-    metadata['size'] = float(form_data.f.size) * 10E-05
-    gdalinfo_dict = {}
-    gdalinfo_dict['filename'] = rds.GetDescription()
-    gdalinfo_dict['projection'] = rds.GetProjection()
-    gdalinfo_dict['geotransform'] = rds.GetGeoTransform()
-    gdalinfo_dict['proj4'] = rds.GetSpatialRef().ExportToProj4()
+    try:
+        gdalinfo_dict['proj4'] = rds.GetSpatialRef().ExportToProj4()
+        print(rds.GetSpatialRef().ExportToProj4())
+    except AttributeError:
+        print('No projection info found')
+        print("NoneType' object has no attribute 'ExportToProj4")
+        gdalinfo_dict['proj4'] = None
     gdalinfo_dict['metadata'] = metadata
     json_compatible_item_data = jsonable_encoder(gdalinfo_dict)
     return JSONResponse(content=json_compatible_item_data)
@@ -69,7 +76,15 @@ def get_grass_gisenv(form_data: Location = Depends()):
         with Session(gisdb=form_data.gisdb,
                      location=form_data.location_name,
                      mapset=form_data.mapset_name):
-            print(gcore.parse_command("g.gisenv", flags="s"))
+            grass_env = gcore.parse_command("g.gisenv", flags="s")
+            grass_region = gcore.parse_command("g.region", flags="p")
+            print(grass_env)
+            print(grass_region)
+            gisenv_dict = {}
+            gisenv_dict['gisenv'] = grass_env
+            gisenv_dict['region'] = grass_region
+            json_compatible_item_data = jsonable_encoder(gisenv_dict)
+            return JSONResponse(content=json_compatible_item_data)
     except:
         print('location or mapset doesn not exist')
 
@@ -81,11 +96,20 @@ def get_grass_gisenv(form_data: Location = Depends()):
                      location=form_data.location_name,
                      mapset=form_data.mapset_name,
                      create_opts=form_data.create_opts):
-            print(gcore.parse_command("g.gisenv", flags="s"))
-    except RuntimeError:
-        print(f'location {form_data.location_name} already exist')
-        with Session(gisdb=form_data.gisdb, location=form_data.location_name, mapset=form_data.mapset_name):
-            print(gcore.parse_command("g.gisenv", flags="s"))
+            grass_env = gcore.parse_command("g.gisenv", flags="s")
+            print(grass_env)
+    except RuntimeError as ex:
+        print(dir(ex))
+        #print("column: {}".format(ex.col))
+        print(ex)
+        print('ex str')
+        print(str(ex))
+        print(str(ex).split('\n')[4].replace('\\n', '').split(':')[-1])
+        for i, v in enumerate(str(ex).split('\n')):
+            print(v)
+            if 'ERROR' in v:
+                print(v)
+        print('can not create location')
 
 
 @router.post("/api/create_location_from_file")
