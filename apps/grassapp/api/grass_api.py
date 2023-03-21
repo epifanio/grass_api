@@ -1,7 +1,7 @@
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi import Request, Query, APIRouter
 from worker import create_location
-from models.grassmodels import Location, GeorefFile, NewLocation, runGeomorphon
+from models.grassmodels import Location, GeorefFile, Location_georef, Location_epsg, runGeomorphon
 from fastapi import FastAPI, File, UploadFile, Form, Depends
 import pathlib
 from fastapi.encoders import jsonable_encoder
@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 @router.post("/api/gdalinfo")
-async def form_post(form_data: GeorefFile = Depends()):
+async def gdal_info(form_data: GeorefFile = Depends()):
     print(form_data.f)
     print('\n')
     print(dir(form_data.f))
@@ -85,35 +85,49 @@ def get_grass_gisenv(form_data: Location = Depends()):
             gisenv_dict['region'] = grass_region
             json_compatible_item_data = jsonable_encoder(gisenv_dict)
             return JSONResponse(content=json_compatible_item_data)
-    except:
+    except RuntimeError as error:
         print('location or mapset doesn not exist')
+        return {
+            "status": "FAILED",
+            "data": error
+        }
 
 
-@router.get("/api/create_location")
-def get_grass_gisenv(form_data: Location = Depends()):
+@router.get("/api/create_location_epsg")
+def create_location_epsg(form_data: Location_epsg = Depends()):
     try:
         with Session(gisdb=form_data.gisdb,
                      location=form_data.location_name,
                      mapset=form_data.mapset_name,
-                     create_opts=form_data.create_opts):
+                     create_opts=f"EPSG:{form_data.epsg_code}"):
             grass_env = gcore.parse_command("g.gisenv", flags="s")
             print(grass_env)
-    except RuntimeError as ex:
-        print(dir(ex))
+            return {
+                "status": "SUCCESS",
+                "data": {'location': form_data.location_name,
+                         'mapset': form_data.mapset_name,
+                         'gisdb': form_data.gisdb}
+            }
+    except RuntimeError as error:
+        # print(dir(error))
         #print("column: {}".format(ex.col))
-        print(ex)
-        print('ex str')
-        print(str(ex))
-        print(str(ex).split('\n')[4].replace('\\n', '').split(':')[-1])
-        for i, v in enumerate(str(ex).split('\n')):
+        print(error)
+        #print('error str')
+        # print(str(error))
+        #print(str(error).split('\n')[4].replace('\\n', '').split(':')[-1])
+        for i, v in enumerate(str(error).split('\n')):
             print(v)
             if 'ERROR' in v:
                 print(v)
         print('can not create location')
+        return {
+            "status": "FAILED",
+            "data": error
+        }
 
 
-@router.post("/api/create_location_from_file")
-async def get_grass_gisenv(form_data: NewLocation = Depends()):
+@router.post("/api/create_location_file")
+async def get_grass_gisenv(form_data: Location_georef = Depends()):
     contents = await form_data.georef.read()
     location_path = pathlib.Path.joinpath(pathlib.Path(
         form_data.gisdb), pathlib.Path(form_data.location_name))
@@ -135,7 +149,7 @@ async def get_grass_gisenv(form_data: NewLocation = Depends()):
     except RuntimeError as error:
         print('====== ERR 1 ==========')
         print(error)
-        print(str(error).split('\n'))
+        # print(str(error).split('\n'))
         print('=======================')
         try:
             with Session(gisdb=form_data.gisdb,
@@ -146,31 +160,31 @@ async def get_grass_gisenv(form_data: NewLocation = Depends()):
         except RuntimeError as error:
             print('====== ERR 2 ==========')
             print(error)
-            print(str(error).split('\n'))
+            # print(str(error).split('\n'))
             print('=======================')
             return {
                 "status": "FAILED",
-                "data": ''
+                "data": error
             }
         except ValueError as error:
             print('invalid location, can not create a mapset without permanent')
             print('====== ERR 3 ==========')
             print(error)
-            print(str(error).split('\n'))
+            # print(str(error).split('\n'))
             print('=======================')
             return {
                 "status": "FAILED",
-                "data": ''
+                "data": error
             }
     except ValueError as error:
         print('invalid location, can not create a mapset without permanent')
         print('====== ERR 4 ==========')
         print(error)
-        print(str(error).split('\n'))
+        # print(str(error).split('\n'))
         print('=======================')
         return {
             "status": "FAILED",
-            "data": ''
+            "data": error
         }
     except CalledModuleError as error:
         print('===== ERR 5 ===========')
@@ -179,7 +193,7 @@ async def get_grass_gisenv(form_data: NewLocation = Depends()):
         print('=======================')
         return {
             "status": "FAILED",
-            "data": ''
+            "data": error
         }
     try:
         session = gsetup.init(
@@ -195,13 +209,14 @@ async def get_grass_gisenv(form_data: NewLocation = Depends()):
         shutil.rmtree(location_path)
         return {
             "status": "FAILED",
-            "data": ''
+            "data": error
         }
     try:
-        gs.run_command('r.in.gdal',
-                       input=f'/app/grassdata/{form_data.georef.filename}',
-                       output=form_data.output_raster_layer,
-                       flags="oe")
+        if form_data.output_raster_layer:
+            gs.run_command('r.in.gdal',
+                           input=f'/app/grassdata/{form_data.georef.filename}',
+                           output=form_data.output_raster_layer,
+                           flags="oe")
     except CalledModuleError as error:
         print('===== ERR 4 ===========')
         print(error)
@@ -209,7 +224,7 @@ async def get_grass_gisenv(form_data: NewLocation = Depends()):
         print('=======================')
         return {
             "status": "FAILED",
-            "data": ''
+            "data": error
         }
     print('arrived here')
     print(gs.read_command('g.region', raster=form_data.output_raster_layer, flags='ap'))

@@ -8,7 +8,15 @@ class GeorefFile(BaseModel):
     f: UploadFile = Form(...)
 
 
-class NewLocation(BaseModel):
+class Location(BaseModel):
+    location_name: Optional[str] = Field(title="GRASS GIS LOCATION name")
+    mapset_name: Optional[str] = Field(
+        default='PERMANENT', title="GRASS GIS MAPSET name")
+    gisdb: Optional[str] = Field(
+        default='/tmp', title="PATH to the GRASSDATA directory")
+
+
+class Location_georef(BaseModel):
     location_name: Optional[str] = Field(title="GRASS GIS LOCATION name")
     mapset_name: Optional[str] = Field(
         default='PERMANENT', title="GRASS GIS MAPSET name")
@@ -20,17 +28,21 @@ class NewLocation(BaseModel):
     overwrite_mapset: Optional[bool] = Field(
         default=False, title="Overwrite existent GRASS GIS MAPSET")
     output_raster_layer: Optional[str] = Field(
-        default='bathy', title="Name of the imported raster layer")
+        title="Name of the imported raster layer")
 
 
-class Location(BaseModel):
-    create_opts: Optional[str] = Field(default='',
-                                       title="EPSG Code or PATH to georeferenced file to create the GRASS GIS Location")
+class Location_epsg(BaseModel):
     location_name: Optional[str] = Field(title="GRASS GIS LOCATION name")
     mapset_name: Optional[str] = Field(
         default='PERMANENT', title="GRASS GIS MAPSET name")
     gisdb: Optional[str] = Field(
         default='/tmp', title="PATH to the GRASSDATA directory")
+    epsg_code: Optional[int] = Field(default='',
+                                     title="EPSG Code to create the GRASS GIS Location")
+    overwrite_location: Optional[bool] = Field(
+        default=False, title="Overwrite existent GRASS GIS LOCATION")
+    overwrite_mapset: Optional[bool] = Field(
+        default=False, title="Overwrite existent GRASS GIS MAPSET")
 
 
 class Geomorphon(BaseModel):
