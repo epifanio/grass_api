@@ -1,6 +1,6 @@
 import fastapi
 from starlette.middleware.cors import CORSMiddleware
-from api import grass_api
+from grassapi import general
 import uvicorn
 # from views import dashboard
 
@@ -22,7 +22,7 @@ MAX_PROCESSING_SECOND = 600
 
 
 def configure_routing():
-    app.include_router(grass_api.router)
+    app.include_router(general.router)
     # app.include_router(dashboard.router)
 
 
