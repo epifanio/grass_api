@@ -110,10 +110,30 @@ def get_grass_gisenv(form_data: Location = Depends()):
             "status": "FAILED",
             "data": error
         }
+    except CalledModuleError as error:
+        print('missing or invalid location or mapset parameter')
+        return {
+            "status": "FAILED",
+            "data": error
+        }
 
 
 @router.get("/api/create_location_epsg")
 def create_location_epsg(form_data: Location_epsg = Depends()):
+    location_path = pathlib.Path.joinpath(pathlib.Path(
+        form_data.gisdb), pathlib.Path(form_data.location_name))
+    mapset_path = pathlib.Path.joinpath(
+        location_path, pathlib.Path(form_data.mapset_name))
+    if form_data.overwrite_mapset:
+        try:
+            shutil.rmtree(mapset_path)
+        except FileNotFoundError:
+            print(f'no such file or directory: {mapset_path}')
+    if form_data.overwrite_location:
+        try:
+            shutil.rmtree(location_path)
+        except FileNotFoundError:
+            print(f'no such file or directory: {location_path}')
     try:
         with Session(gisdb=form_data.gisdb,
                      location=form_data.location_name,
