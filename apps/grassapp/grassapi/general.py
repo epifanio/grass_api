@@ -168,14 +168,20 @@ def create_location_epsg(form_data: Location_epsg = Depends()):
 @router.post("/api/create_location_file")
 async def create_location_file(form_data: Location_georef = Depends()):
     contents = await form_data.georef.read()
-    location_path = pathlib.Path.joinpath(pathlib.Path(
-        form_data.gisdb), pathlib.Path(form_data.location_name))
-    mapset_path = pathlib.Path.joinpath(
-        location_path, pathlib.Path(form_data.mapset_name))
-    if form_data.overwrite_location:
-        shutil.rmtree(location_path)
-    if form_data.overwrite_mapset:
-        shutil.rmtree(mapset_path)
+    # location_path = pathlib.Path.joinpath(pathlib.Path(
+    #     form_data.gisdb), pathlib.Path(form_data.location_name))
+    # mapset_path = pathlib.Path.joinpath(
+    #     location_path, pathlib.Path(form_data.mapset_name))
+    # if form_data.overwrite_mapset:
+    #     try:
+    #         shutil.rmtree(mapset_path)
+    #     except FileNotFoundError:
+    #         print(f'no such file or directory: {mapset_path}')
+    # if form_data.overwrite_location:
+    #     try:
+    #         shutil.rmtree(location_path)
+    #     except FileNotFoundError:
+    #         print(f'no such file or directory: {location_path}')
 
     with open(f'/tmp/{form_data.georef.filename}', 'wb') as f:
         f.write(contents)
@@ -516,7 +522,7 @@ async def r_what(form_data: RasterQuery = Depends()):
             n, s = form_data.coors
             if form_data.lonlat:
                 n, s, z = gs.read_command(
-                    'm.proj', flags='i', separator=',', coordinates=(1, 1)).split(',')
+                    'm.proj', flags='i', separator=',', coordinates=(n, s)).split(',')
                 print(n, s)
             raster_query_results = gs.raster_what(map=form_data.raster_layers,
                                                   coord=(float(n), float(s)))
