@@ -16,4 +16,4 @@ The following API are implemented:
 * `r_what`
 * `get_current_region`
 
-**NOTE:** The code is stiull a draft/prototype and not considered for production
+**NOTE:** The code is a draft/prototype and not considered for production
