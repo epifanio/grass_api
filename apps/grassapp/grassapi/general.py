@@ -96,12 +96,12 @@ def get_grass_gisenv(form_data: Location = Depends()):
             grass_env = {key.replace("'", ""): val.replace("'", "") for key,
                          val in grass_env.items()}
             grass_region = gs.parse_command(
-                "g.region", flags="ap", parse=(gcore.parse_key_val, {'sep': ':'}))
+                "g.region", flags="acpm", parse=(gcore.parse_key_val, {'sep': ':'}))
             print(grass_env)
             print(grass_region)
             gisenv_dict = {}
-            gisenv_dict['gisenv'] = grass_env
-            gisenv_dict['region'] = grass_region
+            gisenv_dict['status'] = 'SUCCESS'
+            gisenv_dict['data'] = {'gisenv': grass_env, 'region': grass_region}
             json_compatible_item_data = jsonable_encoder(gisenv_dict)
             return JSONResponse(content=json_compatible_item_data)
     except RuntimeError as error:
@@ -149,11 +149,11 @@ def create_location_epsg(form_data: Location_epsg = Depends()):
             }
     except RuntimeError as error:
         # print(dir(error))
-        #print("column: {}".format(ex.col))
+        # print("column: {}".format(ex.col))
         print(error)
-        #print('error str')
+        # print('error str')
         # print(str(error))
-        #print(str(error).split('\n')[4].replace('\\n', '').split(':')[-1])
+        # print(str(error).split('\n')[4].replace('\\n', '').split(':')[-1])
         for i, v in enumerate(str(error).split('\n')):
             print(v)
             if 'ERROR' in v:
@@ -168,20 +168,24 @@ def create_location_epsg(form_data: Location_epsg = Depends()):
 @router.post("/api/create_location_file")
 async def create_location_file(form_data: Location_georef = Depends()):
     contents = await form_data.georef.read()
-    # location_path = pathlib.Path.joinpath(pathlib.Path(
-    #     form_data.gisdb), pathlib.Path(form_data.location_name))
-    # mapset_path = pathlib.Path.joinpath(
-    #     location_path, pathlib.Path(form_data.mapset_name))
-    # if form_data.overwrite_mapset:
-    #     try:
-    #         shutil.rmtree(mapset_path)
-    #     except FileNotFoundError:
-    #         print(f'no such file or directory: {mapset_path}')
-    # if form_data.overwrite_location:
-    #     try:
-    #         shutil.rmtree(location_path)
-    #     except FileNotFoundError:
-    #         print(f'no such file or directory: {location_path}')
+    location_path = pathlib.Path.joinpath(pathlib.Path(
+        form_data.gisdb), pathlib.Path(form_data.location_name))
+    mapset_path = pathlib.Path.joinpath(
+        location_path, pathlib.Path(form_data.mapset_name))
+    if form_data.overwrite_mapset:
+        print('################################################################')
+        print('########         ATTEMPT to remove MAPSET      #################')
+        try:
+            shutil.rmtree(mapset_path)
+        except FileNotFoundError:
+            print(f'no such file or directory: {mapset_path}')
+    if form_data.overwrite_location:
+        print('################################################################')
+        print('########         ATTEMPT to remove LOCATION    #################')
+        try:
+            shutil.rmtree(location_path)
+        except FileNotFoundError:
+            print(f'no such file or directory: {location_path}')
 
     with open(f'/tmp/{form_data.georef.filename}', 'wb') as f:
         f.write(contents)
@@ -274,7 +278,7 @@ async def create_location_file(form_data: Location_georef = Depends()):
         }
     print('arrived here')
     grass_region = gs.parse_command('g.region', raster=form_data.output_raster_layer,
-                                    flags='ap', parse=(gcore.parse_key_val, {'sep': ':'}))
+                                    flags='acpm', parse=(gcore.parse_key_val, {'sep': ':'}))
     return {
         "status": "SUCCESS",
         "data": {'location': form_data.location_name,
@@ -303,12 +307,13 @@ def set_grass_region_bounds(form_data: RegionBounds = Depends()):
             if all(v is not None for v in [n, s, e, w]):
                 if n > s or e > w:
                     grass_region = gs.parse_command(
-                        "g.region", n=n, s=s, e=e, w=w, flags="ap", parse=(gcore.parse_key_val, {'sep': ':'}))
+                        "g.region", n=n, s=s, e=e, w=w, flags="acpm", parse=(gcore.parse_key_val, {'sep': ':'}))
                     print(grass_env)
                     print(grass_region)
                     gisenv_dict = {}
-                    gisenv_dict['gisenv'] = grass_env
-                    gisenv_dict['region'] = grass_region
+                    gisenv_dict['status'] = 'SUCCESS'
+                    gisenv_dict['data'] = {
+                        'gisenv': grass_env, 'region': grass_region}
                     json_compatible_item_data = jsonable_encoder(gisenv_dict)
                     return JSONResponse(content=json_compatible_item_data)
                 else:
@@ -343,7 +348,9 @@ def set_grass_region_raster(form_data: RegionRaster = Depends()):
                      location=form_data.location.location_name,
                      mapset=form_data.location.mapset_name):
             grass_env = gcore.parse_command("g.gisenv", flags="s")
-            if form_data.raster_layer.layer_name is not None:
+            raster_list_read = gcore.read_command(
+                "g.list", type="raster").strip().split('\n')
+            if form_data.raster_layer.layer_name is not None and form_data.raster_layer.layer_name in raster_list_read:
                 grass_region = gs.parse_command(
                     "g.region", raster=form_data.raster_layer.layer_name, flags="acpm", parse=(gcore.parse_key_val, {'sep': ':'}))
                 if form_data.raster_layer.resolution != 0:
@@ -352,14 +359,15 @@ def set_grass_region_raster(form_data: RegionRaster = Depends()):
                 print(grass_env)
                 print(grass_region)
                 gisenv_dict = {}
-                gisenv_dict['gisenv'] = grass_env
-                gisenv_dict['region'] = grass_region
+                gisenv_dict['status'] = 'SUCCESS'
+                gisenv_dict['data'] = {
+                    'gisenv': grass_env, 'region': grass_region}
                 json_compatible_item_data = jsonable_encoder(gisenv_dict)
                 return JSONResponse(content=json_compatible_item_data)
             else:
                 return {
                     "status": "FAILED",
-                    "data": 'set a value for raster layer:{form_data.raster_layer}'
+                    "data": f'raster map {form_data.raster_layer.layer_name} not found - set a value for an existent raster layer:{form_data.raster_layer}'
                 }
     except RuntimeError as error:
         print('location or mapset doesn not exist')
@@ -378,15 +386,22 @@ async def get_rasterlist(form_data: Location = Depends()):
             grass_env = gcore.parse_command("g.gisenv", flags="s")
             raster_list_read = gcore.read_command(
                 "g.list", type="raster").strip().split('\n')
-            #raster_list_parse = gcore.parse_command("g.list", type="raster")
+            # raster_list_parse = gcore.parse_command("g.list", type="raster")
             # raster_list_parse_colon = gcore.parse_command(
             #    "g.list", type="raster", sep=':')
             print(grass_env, raster_list_read)
             # raster_list_parse, raster_list_parse_colon)
-            json_compatible_item_data = jsonable_encoder(raster_list_read)
+            gisenv_dict = {}
+            gisenv_dict['status'] = 'SUCCESS'
+            gisenv_dict['data'] = raster_list_read
+            json_compatible_item_data = jsonable_encoder(gisenv_dict)
             return JSONResponse(content=json_compatible_item_data)
-    except RuntimeError as ex:
-        print(dir(ex))
+    except RuntimeError as error:
+        print(error)
+        return {
+            "status": "FAILED",
+            "data": error
+        }
 
 
 @router.post("/api/geomorphon")
@@ -409,9 +424,9 @@ def run_geomorphon(form_data: RunGeomorphon = Depends()):
         form_data.gisdb, form_data.location_name, form_data.mapset_name)
     if len(form_data.region) == 4:
         n, s, e, w = form_data.region
-        gs.read_command('g.region', n=n, s=s, e=e, w=w, flags='ap')
+        gs.read_command('g.region', n=n, s=s, e=e, w=w, flags='acpm')
     else:
-        gs.read_command('g.region', raster=form_data.elevation, flags='ap')
+        gs.read_command('g.region', raster=form_data.elevation, flags='acpm')
     try:
         gs.run_command('r.geomorphon', elevation=form_data.elevation,
                        forms=output_suffix+'forms', flags=fl, overwrite=form_data.overwrite)
@@ -466,9 +481,9 @@ async def run_paramscale(form_data: RunParamScale = Depends()):
         form_data.gisdb, form_data.location_name, form_data.mapset_name)
     if form_data.raster_region and len(form_data.raster_region.split(',')) == 4:
         n, s, e, w = form_data.raster_region.split(',')
-        gs.read_command('g.region', n=n, s=s, e=e, w=w, flags='ap')
+        gs.read_command('g.region', n=n, s=s, e=e, w=w, flags='acpm')
     else:
-        gs.read_command('g.region', raster=form_data.input, flags='ap')
+        gs.read_command('g.region', raster=form_data.input, flags='acpm')
     try:
         gs.run_command('r.param.scale', input=form_data.input,
                        output=form_data.output+'_'+form_data.method,
@@ -558,12 +573,12 @@ async def get_current_region(form_data: Location = Depends()):
             grass_env = {key.replace("'", ""): val.replace("'", "") for key,
                          val in grass_env.items()}
             grass_region = gs.parse_command(
-                "g.region", flags="ap", parse=(gcore.parse_key_val, {'sep': ':'}))
+                "g.region", flags="acpm", parse=(gcore.parse_key_val, {'sep': ':'}))
             print(grass_env)
             print(grass_region)
             gs.run_command(
                 "v.in.region", output="region_bbox", overwrite=True)
-            gs.run_command("v.out.ogr", input='region_bbox', type='line,area,centroid',
+            gs.run_command("v.out.ogr", input='region_bbox', type='area',
                            output='/tmp/region_bbox.GeoJSON', format='GeoJSONSeq', overwrite=True)
             # gisenv_dict = {}
             # gisenv_dict['gisenv'] = grass_env
