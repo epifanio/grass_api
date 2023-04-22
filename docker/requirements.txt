@@ -17,3 +17,4 @@ pyyaml
 grass_session
 numpy
 python-multipart
+git+https://github.com/cheind/pydantic-numpy.git
