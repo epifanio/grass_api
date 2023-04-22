@@ -1,12 +1,17 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Union
 import pydantic
-
+import pydantic_numpy.dtype as pnd
+from pydantic_numpy import NDArray, NDArrayFp32
 from fastapi import UploadFile, Form
 
 
 class GeorefFile(BaseModel):
     f: UploadFile = Form(...)
+
+
+class Gisdb(BaseModel):
+    gisdb: Optional[str] = Field(title="GRASS GIS DATABASE")
 
 
 class Location(BaseModel):
@@ -15,6 +20,16 @@ class Location(BaseModel):
         default='PERMANENT', title="GRASS GIS MAPSET name")
     gisdb: Optional[str] = Field(
         default='/tmp', title="PATH to the GRASSDATA directory")
+
+
+class Mapset(BaseModel):
+    location_name: Optional[str] = Field(title="GRASS GIS LOCATION name")
+    mapset_name: Optional[str] = Field(
+        default='PERMANENT', title="GRASS GIS MAPSET name")
+    gisdb: Optional[str] = Field(
+        default='/tmp', title="PATH to the GRASSDATA directory")
+    overwrite_mapset: Optional[bool] = Field(
+        default=False, title="Overwrite existent GRASS GIS MAPSET")
 
 
 class Location_georef(BaseModel):
@@ -68,7 +83,7 @@ class RunGeomorphon(BaseModel):
     region: Optional[str] = Field(default='',
                                   title="GRASS Region in the form of a comma separated string values: n,s,w,e")
     elevation: str = Field(default='bathy')
-    forms: str = Field(default='bathy_geomorphon')
+    # forms: str = Field(default='bathy_geomorphon')
     search: int = Field(default=3, title='search',
                         description='Outer search radius')
     skip: int = Field(default=0, title='skip',
@@ -154,14 +169,25 @@ class RegionBounds(BaseModel):
     resolution: Resolution | None = None
 
 
-class RasterQuery(BaseModel):
+class lonlat_to_proj(BaseModel):
     location: Location | None = None
-    raster_layers: List[str] = Field(default=[''], description='')
+    coors: NDArray[pnd.float32] = Field(default=[0.0, 0.0], description='')
+
+
+class GrassQuery(BaseModel):
+    location: Location | None = None
+    grass_layers: List[str] = Field(default=[''], description='')
     coors: List[float] = Field(default=[0.0, 0.0], description='')
     lonlat: Optional[bool] = Field(
         default=False, description='input values are in lon lat format (decimal degre) - default False auumes coordinates matches the Location projection')
 
 
+class GrassLayer(BaseModel):
+    location: Location | None = None
+    grass_layers: Optional[List[str]] = None
+    layer_type: Optional[List[str]] = Field(default=['raster', 'vector'], description='')
+    pattern: Optional[str] = Field(default="", example="g*")
+    
 class Datasource(BaseModel):
     data: dict = Field(
         default={"": ""},
@@ -185,3 +211,68 @@ class Datasource(BaseModel):
 class Choice(BaseModel):
     clean: Optional[bool] = Field(
         default=False, description='it is your choice')
+
+
+class RunGrmLsi(BaseModel):
+    location_name: Optional[str] = Field(title="GRASS GIS LOCATION name")
+    mapset_name: Optional[str] = Field(
+        default='PERMANENT', title="GRASS GIS MAPSET name")
+    gisdb: Optional[str] = Field(
+        default='/tmp', title="PATH to the GRASSDATA directory")
+
+    region: NDArray[pnd.float32] = Field(
+        default=[4546380, 4546202, 506185, 506571], description='region: [n,s,w,e]')
+
+    elevation: str = Field(default='bathy')
+    # forms: str = Field(default='bathy_geomorphon')
+    swc_search: int = Field(default=9, title='search',
+                            description='Outer search radius')
+    swc_skip: int = Field(default=3, title='skip',
+                          description='Inner search radius')
+    swc_flat: float = Field(default=2, title='flat',
+                            description='Flatness threshold (degrees)')
+    swc_dist: float = Field(default=0, title='flat',
+                            description='Flatness distance, zero for none')
+    iter_thin: int = Field(default=400, title='iter_thin',
+                           description='iter_thin')
+    swc_area_lesser: int = Field(default=70, title='swc_area_lesser',
+                                 description='swc_area_lesser')
+    generalize_method: str = Field(default='douglas')
+    generalize_threshold: int = Field(default=2, title='generalize_threshold',
+                                      description='generalize_threshold')
+
+    vclean_rmdangle_threshold: List[int] = Field(
+        default=[5, 10, 20, 30], description='vclean_rmdangle_threshold')
+
+    sw_search: int = Field(default=30, title='search',
+                           description='Outer search radius')
+    sw_skip: int = Field(default=7, title='skip',
+                         description='Inner search radius')
+    sw_flat: float = Field(default=3.8, title='flat',
+                           description='Flatness threshold (degrees)')
+    sw_dist: float = Field(default=15, title='flat',
+                           description='Flatness distance, zero for none')
+    sw_area_lesser: int = Field(default=1000, title='sw_area_lesser',
+                                description='sw_area_lesser')
+    vclean_rmarea_threshold: List[int] = Field(default=[10], title='vclean_rmarea_threshold',
+                                               description='vclean_rmarea_threshold')
+    buffer_distance: int = Field(default=1, title='buffer_distance',
+                                 description='buffer_distance')
+    transect_split_length: int = Field(default=1, title='transect_split_length',
+                                       description='transect_split_length')
+    point_dmax: int = Field(default=1, title='point_dmax',
+                            description='point_dmax')
+    transect_side_distances: List[int] = Field(
+        default=[70, 70], description='transect_side_distances')
+    clean: Optional[bool] = Field(
+        default=False, description='clean output')
+    # m: Optional[bool] = Field(default=False,
+    #                           description='Use meters to define search units (default is cells)')
+    # e: Optional[bool] = Field(
+    #     default=False, description='Use extended form correction')
+    # overwrite: bool = Field(
+    #     default=False, description='Allow output files to overwrite existing files')
+    # predictors: Optional[bool] = Field(
+    #     default=False, description='generate extra layer form generic geomorphometry')
+    # output_suffix: Optional[str] = Field(
+    #     default=None, title="suffix used for output, if None a uuid will be generated")
