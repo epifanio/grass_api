@@ -6,7 +6,12 @@ LABEL maintainer="massimods@met.no"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get -y dist-upgrade && apt-get install -y apt-utils  build-essential git python3-dev python3.10-venv python3-gdal
+RUN apt-get update && apt-get -y dist-upgrade && apt-get install -y apt-utils  \
+    build-essential \
+    git \
+    python3-dev \
+    python3.10-venv \
+    python3-gdal
 
 # ENV VIRTUAL_ENV=/opt/venv
 # RUN python3 -m venv $VIRTUAL_ENV
@@ -17,6 +22,11 @@ COPY requirements.txt .
 RUN pip install -U pip
 RUN pip install -r requirements.txt
 
+RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN git clone https://github.com/OSGeo/grass-addons && \
+    cd grass-addons/src/ && make MODULE_TOPDIR=/usr/local/grass/
+
+RUN apt-get install -y python3-matplotlib
 COPY ./start.sh /start.sh
 RUN chmod +x /start.sh
 
