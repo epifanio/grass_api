@@ -473,8 +473,9 @@ def run_geomorphon(form_data: RunGeomorphon = Depends()):
         fl = ''
     session = gsetup.init(
         form_data.gisdb, form_data.location_name, form_data.mapset_name)
-    if len(form_data.region) == 4:
-        n, s, e, w = form_data.region
+    if len(form_data.region.split(',')) == 4:
+        print('### set the GRASS COMPUTATIONAL REGION ###')
+        n, s, w, e = form_data.region.split(',')
         g.read_command('g.region', n=n, s=s, e=e, w=w, flags='acpm')
     else:
         g.read_command('g.region', raster=form_data.elevation, flags='acpm')
@@ -527,7 +528,7 @@ def run_geomorphon(form_data: RunGeomorphon = Depends()):
                 "status": "FAILED",
                 "data": error
             }
-    
+
 
 
 @router.post("/api/paramscale")
@@ -781,6 +782,26 @@ def get_valid_location(form_data: Gisdb = Depends()):
         return {
             "status": "FAILED",
             "data": f"{form_data.gisdb} do not contain a valid GRASS GIS location"
+        }
+
+@router.get("/api/get_rvg_list")
+def get_raster_list(form_data: Location = Depends()):
+    try:
+        with Session(gisdb=form_data.gisdb,
+                     location=form_data.location_name,
+                     mapset=form_data.mapset_name):
+            raster_list = g.read_command('g.list', type_='raster', separator='comma')
+            vector_list = g.read_command('g.list', type_='vector', separator='comma')
+            region_list = g.read_command('g.list', type_='region', separator='comma')
+            results = {'raster': [i for i in raster_list.replace('\n','').split(',')],
+                       'vector': [i for i in vector_list.replace('\n','').split(',')],
+                       'region': [i for i in region_list.replace('\n','').split(',')]}
+            json_compatible_item_data = jsonable_encoder({'status': 'SUCCESS', 'data': results})
+            return JSONResponse(content=json_compatible_item_data)
+    except CalledModuleError as error:
+        return {
+            "status": "FAILED",
+            "data": error
         }
 
 
