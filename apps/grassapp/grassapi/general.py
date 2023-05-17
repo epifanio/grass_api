@@ -15,6 +15,7 @@ from models.grassmodels import (Location,
                                 Choice,
                                 lonlat_to_proj,
                                 RunGrmLsi,
+                                RunGrm,
                                 GrassLayer)
 
 #
@@ -543,8 +544,9 @@ async def run_paramscale(form_data: RunParamScale = Depends()):
         fl = ''
     session = gsetup.init(
         form_data.gisdb, form_data.location_name, form_data.mapset_name)
-    if form_data.raster_region and len(form_data.raster_region.split(',')) == 4:
-        n, s, e, w = form_data.raster_region.split(',')
+    if len(form_data.region.split(',')) == 4:
+        print('### set the GRASS COMPUTATIONAL REGION ###')
+        n, s, w, e = form_data.region.split(',')
         g.read_command('g.region', n=n, s=s, e=e, w=w, flags='acpm')
     else:
         g.read_command('g.region', raster=form_data.input, flags='acpm')
@@ -853,6 +855,98 @@ def run_grm(form_data: RunGrmLsi = Depends()):
             s=s,
             w=w,
             e=e,
+            elevation=elevation,
+            search=swc_search,
+            skip=swc_skip,
+            flat=swc_flat,
+            dist=swc_dist,
+            iter_thin=iter_thin,
+            area_lesser=swc_area_lesser,
+            generalize_method=generalize_method,
+            generalize_threshold=generalize_threshold,
+            vclean_rmdangle_threshold=vclean_rmdangle_threshold)
+
+        sw(suffix=sw_suffix,
+           n=n,
+           s=s,
+           w=w,
+           e=e,
+           elevation=elevation,
+           search=sw_search,
+           skip=sw_skip,
+           flat=sw_flat,
+           dist=sw_dist,
+           area_lesser=sw_area_lesser,
+           vclean_rmarea_threshold=vclean_rmarea_threshold)
+
+        side_stats = sw_side(swc_suffix=swc_suffix,
+                             sw_suffix=sw_suffix,
+                             buffer_distance=buffer_distance,
+                             elevation=elevation)
+
+        results = sw_metrics(swc_suffix=swc_suffix,
+                             sw_suffix=sw_suffix,
+                             side_stats=side_stats,
+                             transect_split_length=transect_split_length,
+                             point_dmax=point_dmax,
+                             elevation=elevation,
+                             transect_side_distances=transect_side_distances)
+
+        print(results)
+        if form_data.clean:
+            clean(swc_suffix)
+            clean(sw_suffix)
+        json_compatible_item_data = jsonable_encoder(results)
+        return JSONResponse(content=json_compatible_item_data)
+
+
+
+
+@router.post("/api/GRMLSI")
+def run_grm(form_data: RunGrm = Depends()):
+    # Start GRASS Session
+    print('do nothing')
+    with Session(gisdb=form_data.gisdb,
+                 location=form_data.location_name,
+                 mapset=form_data.mapset_name):
+        # g.run_command('g.region', raster=form_data.elevation, flags='ap')
+        # g.run_command('r.colors', color='haxby', map=form_data.elevation, flags='e')
+
+        # common parameters
+        n, s, w, e = [i for i in form_data.region.split(',')]
+        elevation = form_data.elevation
+        # SWC_parameters
+        swc_suffix = 'g'+str(uuid.uuid1()).replace('-', '')
+        swc_search = form_data.swc_search
+        swc_skip = form_data.swc_skip
+        swc_flat = form_data.swc_flat
+        swc_dist = form_data.swc_dist
+        iter_thin = form_data.iter_thin
+        swc_area_lesser = form_data.swc_area_lesser
+        generalize_method = form_data.generalize_method
+        generalize_threshold = form_data.generalize_threshold
+        vclean_rmdangle_threshold = [i for i in form_data.vclean_rmdangle_threshold.split(',')] 
+        # SWC_parameters
+        sw_suffix = 'g'+str(uuid.uuid1()).replace('-', '')
+        sw_search = form_data.sw_search
+        sw_skip = form_data.sw_skip
+        sw_flat = form_data.sw_flat
+        sw_dist = form_data.sw_dist
+        sw_area_lesser = form_data.sw_area_lesser
+        vclean_rmarea_threshold = [i for i in form_data.vclean_rmarea_threshold.split(',')] 
+        # sw_side
+        buffer_distance = form_data.buffer_distance
+        # sw_metrics
+        transect_split_length = form_data.transect_split_length
+        point_dmax = form_data.point_dmax
+        transect_side_distances = [i for i in form_data.transect_side_distances.split(',')]
+
+        swc(suffix=swc_suffix,
+            n=n,
+            s=s,
+            w=w,
+            e=e,
+            elevation=elevation,
             search=swc_search,
             skip=swc_skip,
             flat=swc_flat,
